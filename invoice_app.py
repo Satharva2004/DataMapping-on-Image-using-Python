@@ -5,16 +5,23 @@ import base64
 import tempfile
 from zipfile import ZipFile
 import os
+import logging
 
-# Configuration - Fixed
-TEMPLATE_PATH = os.path.abspath("Black and White Minimalist Business Invoice.png")
-FONT_PATH = os.path.abspath("Ubuntu-Medium.ttf")  # Add this file to your project
+# Configure logging
+logging.basicConfig(level=logging.INFO)
 
-# Verify resources exist
+# Absolute paths for cloud deployment
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+TEMPLATE_PATH = os.path.join(
+    BASE_DIR, "Black and White Minimalist Business Invoice.png"
+)
+FONT_PATH = os.path.join(BASE_DIR, "Ubuntu-Medium.ttf")
+
+# Verify critical files exist
 if not os.path.exists(TEMPLATE_PATH):
-    st.error(f"Template image missing at: {TEMPLATE_PATH}")
+    st.error(f"🔴 Template image missing at: {TEMPLATE_PATH}")
 if not os.path.exists(FONT_PATH):
-    st.error(f"Font file missing at: {FONT_PATH}")
+    st.error(f"🔴 Font file missing at: {FONT_PATH}")
 
 COORDINATES = {
     "InvoiceID": (135, 57),
@@ -27,34 +34,43 @@ COORDINATES = {
 
 class CustomPDF(FPDF):
     def __init__(self):
-        super().__init__()
+        super().__init__(format="A4")  # Explicit format
         self.add_page()
-        self.set_margins(20, 20, 20)
-        self.set_auto_page_break(True, margin=20)
-        self.add_font("Arial", style="", fname=FONT_PATH, uni=True)
+        self.set_margins(0, 0, 0)
+        self.add_font("Arial", "", FONT_PATH)
         self.set_font("Arial", size=12)
+        logging.info("PDF Initialized")
 
     def header(self):
         if os.path.exists(TEMPLATE_PATH):
             self.image(TEMPLATE_PATH, x=0, y=0, w=210, h=297)
+            logging.info("Template image added")
         else:
-            self.cell(0, 10, "Invoice Template Missing!", ln=True)
+            self.cell(0, 10, "Invoice Template", ln=1)
 
     def add_content(self, data):
-        self.set_font("Arial", size=12)
-        for field, (x, y) in COORDINATES.items():
-            self.set_xy(x, y)
-            self.cell(0, 10, str(data.get(field, "")))
+        try:
+            self.set_font("Arial", size=12)
+            for field, (x, y) in COORDINATES.items():
+                self.set_xy(x, y)
+                value = str(data.get(field, ""))
+                self.cell(0, 10, value)
+                logging.info(f"Added {field}: {value} at ({x},{y})")
+        except Exception as e:
+            logging.error(f"Content error: {str(e)}")
+            raise
 
 
 def generate_pdf(invoice_data):
     try:
         pdf = CustomPDF()
         pdf.add_content(invoice_data)
-        return pdf.output(dest="S").encode("latin-1")
+        result = pdf.output(dest="S").encode("latin-1")
+        logging.info(f"Generated PDF size: {len(result)} bytes")
+        return result
     except Exception as e:
-        st.error(f"PDF Generation Error: {str(e)}")
-        return b""
+        logging.error(f"PDF generation failed: {str(e)}")
+        return b"ERROR"  # Return non-empty bytes
 
 
 # Rest of your Streamlit UI code remains the same...
