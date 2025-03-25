@@ -6,14 +6,19 @@ import tempfile
 from zipfile import ZipFile
 import os
 
-# Configuration
-TEMPLATE_PATH = "Black and White Minimalist Business Invoice.png"
-FONT_SIZE = 12  # Reduced from 18 for better fit
-LINE_HEIGHT = 8
+# Configuration - Fixed
+TEMPLATE_PATH = os.path.abspath("Black and White Minimalist Business Invoice.png")
+FONT_PATH = os.path.abspath("Ubuntu-Medium.ttf")  # Add this file to your project
+
+# Verify resources exist
+if not os.path.exists(TEMPLATE_PATH):
+    st.error(f"Template image missing at: {TEMPLATE_PATH}")
+if not os.path.exists(FONT_PATH):
+    st.error(f"Font file missing at: {FONT_PATH}")
 
 COORDINATES = {
-    "InvoiceID": (135, 50),
-    "Date": (140, 75),
+    "InvoiceID": (135, 57),
+    "Date": (135, 75),
     "ClientName": (10, 75),
     "Amount": (10, 187),
     "Description": (10, 135),
@@ -24,28 +29,35 @@ class CustomPDF(FPDF):
     def __init__(self):
         super().__init__()
         self.add_page()
-        self.set_margins(left=20, top=20, right=20)  # Add safe margins
-        self.set_auto_page_break(auto=True, margin=20)  # Bottom margin
-        self.set_font("Arial", size=FONT_SIZE)
+        self.set_margins(20, 20, 20)
+        self.set_auto_page_break(True, margin=20)
+        self.add_font("Arial", style="", fname=FONT_PATH, uni=True)
+        self.set_font("Arial", size=12)
 
     def header(self):
-        self.image(TEMPLATE_PATH, x=0, y=0, w=210, h=297)
+        if os.path.exists(TEMPLATE_PATH):
+            self.image(TEMPLATE_PATH, x=0, y=0, w=210, h=297)
+        else:
+            self.cell(0, 10, "Invoice Template Missing!", ln=True)
 
     def add_content(self, data):
-        self.set_font("Arial", size=FONT_SIZE)
-
+        self.set_font("Arial", size=12)
         for field, (x, y) in COORDINATES.items():
             self.set_xy(x, y)
-            if field == "Description":
-                self.multi_cell(0, LINE_HEIGHT, str(data[field]))  # Wrap text
-            else:
-                self.cell(0, LINE_HEIGHT, str(data[field]))
+            self.cell(0, 10, str(data.get(field, "")))
 
 
 def generate_pdf(invoice_data):
-    pdf = CustomPDF()
-    pdf.add_content(invoice_data)
-    return pdf.output(dest="S").encode("latin-1")
+    try:
+        pdf = CustomPDF()
+        pdf.add_content(invoice_data)
+        return pdf.output(dest="S").encode("latin-1")
+    except Exception as e:
+        st.error(f"PDF Generation Error: {str(e)}")
+        return b""
+
+
+# Rest of your Streamlit UI code remains the same...
 
 
 # Streamlit UI with preview features
